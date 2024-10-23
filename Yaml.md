@@ -62,6 +62,54 @@ fun main() {
     println("Converted schema saved to output.yaml")
 }
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.module.kotlin.KotlinModule
+import java.io.File
+
+// Helper function to convert snake_case to camelCase
+fun snakeToCamel(snakeCase: String): String {
+    return snakeCase.split('_').mapIndexed { index, part ->
+        if (index == 0) part else part.replaceFirstChar { it.uppercase() }
+    }.joinToString("")
+}
+
+fun convertKeysToCamelCase(map: Map<String, Any?>): Map<String, Any?> {
+    return map.mapKeys { (key, _) -> snakeToCamel(key) }.mapValues { (_, value) ->
+        when (value) {
+            is Map<*, *> -> convertKeysToCamelCase(value as Map<String, Any?>)
+            is List<*> -> value.map {
+                if (it is Map<*, *>) {
+                    convertKeysToCamelCase(it as Map<String, Any?>)
+                } else {
+                    it
+                }
+            }
+            else -> value
+        }
+    }
+}
+
+fun main() {
+    val objectMapper = ObjectMapper(YAMLFactory()).apply {
+        registerModule(KotlinModule())
+    }
+
+    // Read the YAML file
+    val inputFile = File("input.yaml")
+    val schema = objectMapper.readValue(inputFile, Map::class.java) as Map<String, Any?>
+
+    // Convert keys to camelCase
+    val camelCaseSchema = convertKeysToCamelCase(schema)
+
+    // Write the modified schema to a new YAML file
+    val outputFile = File("output.yaml")
+    objectMapper.writeValue(outputFile, camelCaseSchema)
+
+    println("Converted schema saved to output.yaml")
+}
+
+
 Explanation:
 
 	1.	snakeToCamel function: Converts a snake_case string to camelCase.
